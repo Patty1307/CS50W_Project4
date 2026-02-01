@@ -26,6 +26,7 @@
                         
                                 <form id="compose-form">
                                     <div class="modal-body">
+                                            {% csrf_token %}
                                             {{ form.as_p }}
                                     </div>
                                     <div class="modal-footer">

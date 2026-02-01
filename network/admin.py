@@ -3,7 +3,7 @@ from django.contrib import admin
 from .models import Post, Like, Comment, User
 
 class PostAdmin(admin.ModelAdmin):
-    list_display = ("id", "owner", "content")
+    list_display = ("id", "owner", "content", "created", "edited")
 
 class CommentAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "post", "content")

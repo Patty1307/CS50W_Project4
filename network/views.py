@@ -7,6 +7,8 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 from django import forms
 
 from .models import User, Post, Like, Comment
@@ -82,11 +84,25 @@ def register(request):
     else:
         return render(request, "network/register.html")
 
-@csrf_exempt
+@require_POST
 @login_required
+@csrf_protect
 def compose(request):
     
     # Composing a new post must be via POST
     if request.method != "POST":
         return JsonResponse({"error": "POST request required."}, status=400)
-    
+
+    data = json.loads(request.body)
+    content = data.get("content","")
+    if not content:
+        return JsonResponse({"error": "Content must not be empty."}, status=400)
+    owner = request.user
+
+    post = Post(
+        owner=owner,
+        content=content.strip()
+    )
+    post.save()
+
+    return JsonResponse({"message": "Post successfully"}, status=201)
