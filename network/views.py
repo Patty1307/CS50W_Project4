@@ -8,8 +8,9 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django import forms
+from django.core.paginator import Paginator
 
 from .models import User, Post, Like, Comment
 
@@ -106,3 +107,28 @@ def compose(request):
     post.save()
 
     return JsonResponse({"message": "Post successfully"}, status=201)
+
+require_GET
+def all_posts(request):
+    # Get from the URL the page number
+    page_number = request.GET.get("page",1)
+
+    # Build the query set
+    qs = Post.objects.select_related("owner").all()
+    
+    #Build the paginator
+    paginator = Paginator(qs, 10)
+    
+    # Get the data/posts of the current page number
+    page_obj = paginator.get_page(page_number)
+
+    user = request.user if request.user.is_authenticated else None
+
+    return JsonResponse({
+        # Load/serialize the Data in a Dictionary
+        "posts": [p.serialize(user) for p in page_obj.object_list],
+        "page": page_obj.number,
+        "num_pages": paginator.num_pages,
+        "has_next": page_obj.has_next(),
+        "has_previous": page_obj.has_previous(),
+    })
