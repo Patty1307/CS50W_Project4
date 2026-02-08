@@ -19,15 +19,13 @@ class Post(models.Model):
     def __str__(self):
         return self.content[:50]
     
-    # The Json we send with the API Call to Load all the necessary Data in the frontend
     def serialize(self, user=None):
-        return{
-            # Base Data
+        return {
             "id": self.id,
             "owner": self.owner.username,
             "content": self.content,
-            "created": self.created.isoformat(),
-            "edited": self.edited.isoformat() if self.edited else None,
+            "created": self.created.strftime("%d.%m.%Y %H:%M"),
+            "edited": self.edited.strftime("%d.%m.%Y %H:%M") if self.edited else None,
 
             # Likes
             "likes": self.likes.count(),
@@ -37,15 +35,12 @@ class Post(models.Model):
                 else False
             ),
 
-            # Edit rights on the Post
+            # Rights to eddit
             "can_edit": user == self.owner if user else False,
 
-            # Amount of comments
-            "comments_count": self.comments.count()
-
+            # count the comments
+            "comments_count": self.comments.count(),
         }
-    
-
 
 class Like(models.Model):
     user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='likes')

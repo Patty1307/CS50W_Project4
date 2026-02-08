@@ -108,27 +108,23 @@ def compose(request):
 
     return JsonResponse({"message": "Post successfully"}, status=201)
 
-require_GET
+@require_GET
 def all_posts(request):
-    # Get from the URL the page number
-    page_number = request.GET.get("page",1)
+    
+    page_number = request.GET.get('page')
 
-    # Build the query set
-    qs = Post.objects.select_related("owner").all()
     
-    #Build the paginator
-    paginator = Paginator(qs, 10)
+
+    post_list = Post.objects.all()
+    paginator = Paginator(post_list,10) # 10 Posts per page
     
-    # Get the data/posts of the current page number
     page_obj = paginator.get_page(page_number)
 
-    user = request.user if request.user.is_authenticated else None
-
     return JsonResponse({
-        # Load/serialize the Data in a Dictionary
-        "posts": [p.serialize(user) for p in page_obj.object_list],
-        "page": page_obj.number,
-        "num_pages": paginator.num_pages,
-        "has_next": page_obj.has_next(),
-        "has_previous": page_obj.has_previous(),
-    })
+        "posts" : [post.serialize() for post in page_obj.object_list],
+        "page_obj" : {  "number": page_obj.number,
+                        "num_pages" : paginator.num_pages,
+                        "has_next" : page_obj.has_next(),
+                        "has_previous": page_obj.has_previous()                     
+                      }
+        })

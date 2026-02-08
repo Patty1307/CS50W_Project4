@@ -2,18 +2,24 @@ let currentPage = 1;
 
 document.addEventListener('DOMContentLoaded', () => {
 
-// initial load
-loadPosts(1);
+load_Posts()
 
-  // Pagination buttons
-  document.querySelector("#prev").addEventListener("click", () => {
-    if (currentPage > 1) loadPosts(currentPage - 1);
-  });
+const toastPost = document.getElementById('PostToast')
+const toastBootstrap = bootstrap.Toast.getOrCreateInstance(toastPost)
 
 
-document.querySelector("#next").addEventListener("click", () => {
-    loadPosts(currentPage + 1);
-  });
+// Register Click event for previous button
+document.querySelector('#prev').addEventListener('click', () => {
+    currentPage--;
+    
+    load_Posts(currentPage)
+});
+
+document.querySelector('#next').addEventListener('click', () => {
+    currentPage++;
+        
+    load_Posts(currentPage)
+});
 
 
 // When the modal hides reset the form each time
@@ -59,6 +65,9 @@ document.querySelector('#compose-form').onsubmit = async (event) => {
         }
         console.log("Post API response:", data);
 
+        await load_Posts()
+        toastBootstrap.show()
+
     } catch (error) {
         console.error("Error sending email", error.message);
     }
@@ -71,65 +80,94 @@ document.querySelector('#compose-form').onsubmit = async (event) => {
   };
 
 
+
+// Load posts
+
 });
 
-async function loadPosts(page) {
-  try {
-    const response = await fetch(`/posts/all?page=${page}`);
+async function load_Posts(page_number = 1, feed = "") {
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    
+    try{
+        
+        // Which feed should we get. All ('') or following
+
+        const url = new URL(window.location.href);
+        const feed = url.searchParams.get('feed') ?? '';
+        
+        //Api call for all Posts
+        const response = await fetch(`/posts/all?page=${page_number}&feed=${feed}`);
+
+        // Json parsen
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Unkown error while loading posts");
+        }
+        console.log("Post API response", data);
+    
+        renderPosts(data.posts)
+        renderPageNavigation(data.page_obj)
+    
+    } catch (error) {
+        console.error("Error loading posts", error.message);
     }
 
-    const data = await response.json();
-
-    console.log("All Posts API:", data);
-
-    currentPage = data.page;
-
-    renderPosts(data.posts);
-
-    document.querySelector("#prev").disabled = !data.has_previous;
-    document.querySelector("#next").disabled = !data.has_next;
-    document.querySelector("#PageCounter").innerHTML= "Page " + currentPage + " of " + data.num_pages;
-
-  } catch (err) {
-    console.error("Failed to load posts:", err);
-  }
 }
 
 function renderPosts(posts) {
-  const container = document.querySelector("#posts");
-  container.innerHTML = "";
+    const container = document.querySelector('#posts')
+    container.innerHTML = ''; 
 
-  posts.forEach(post => {
-    container.appendChild(renderPost(post));
-  });
+    posts.forEach(post => {
+        const div = document.createElement('div');
+        div.className = 'card shadow-sm mt-2 hover-lift';
+        div.innerHTML = `
+        
+            <div class="p-2 d-flex justify-content-between">
+                
+                <div class="flex-grow-1 min-w-0 me-3">
+                    <p class="mb-1 fw-semibold">${post.owner}</p>
+                    <p class="mb-1 text-break">${post.content}</p>
+                    <p class="mb-0 text-muted">
+                    <span>Likes ${post.likes}</span>
+                    <span class="ms-2">Comments ${post.comments_count}</span>
+                    </p>
+                </div>
+
+                <div class="d-flex align-items-center flex-shrink-0">
+                    <p class="m-0 text-muted small">${post.created}</p>
+                </div>
+            </div>
+        
+        `
+        container.appendChild(div);
+        
+    });
+
+    }
+
+function renderPageNavigation(page_obj) {
+
+    document.querySelector("#prev").disabled = !page_obj.has_previous;
+    document.querySelector("#next").disabled = !page_obj.has_next;
+    document.querySelector('#PageCounter').innerHTML = page_obj.number + " of " + page_obj.num_pages
 }
 
-function renderPost(post) {
-  const card = document.createElement("div");
-  card.className = "border rounded p-2 mb-2";
 
-  card.innerHTML = `
-    <div class="d-flex justify-content-between align-items-center">
-      <strong>${escapeHtml(post.owner)}</strong>
-      <small class="text-muted">${formatDate(post.created)}</small>
-    </div>
-    <p class="mb-0 mt-2">${escapeHtml(post.can_edit)}</p>
-    <p class="mb-0 mt-2">${escapeHtml(post.content)}</p>
-    <p class="mb-0 mt-2">${escapeHtml(post.likes)}</p>
-  `;
+function getUrlParam(paramName) {
+    try {
+        url = window.location.href;
+        
+        const parsedUrl = new URL(url);
 
-  return card;
+        const value = parsedUrl.searchParams.get(paramName);
+
+        return value !== null ? value : null;
+    } catch (error) {
+        console.error("Non valid URL:", error);
+        return null;
+    }
 }
 
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, m => ({
-    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#039;"
-  }[m]));
-}
 
-function formatDate(isoString) {
-  return isoString ? isoString.slice(0, 16).replace("T", " ") : "";
-}
