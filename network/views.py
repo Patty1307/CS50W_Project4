@@ -4,11 +4,11 @@ from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.http import JsonResponse
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.csrf import csrf_protect
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 from django import forms
 from django.core.paginator import Paginator
 
@@ -32,7 +32,7 @@ def index(request):
     form = PostForm()
 
     return render(request, "network/index.html", {
-        "form": form
+        "form": form,
     })
 
 
@@ -109,11 +109,9 @@ def compose(request):
     return JsonResponse({"message": "Post successfully"}, status=201)
 
 @require_GET
-def all_posts(request):
+def get_posts(request):
     
-    page_number = request.GET.get('page')
-
-    
+    page_number = request.GET.get('page')  
 
     post_list = Post.objects.all()
     paginator = Paginator(post_list,10) # 10 Posts per page
@@ -121,10 +119,88 @@ def all_posts(request):
     page_obj = paginator.get_page(page_number)
 
     return JsonResponse({
-        "posts" : [post.serialize() for post in page_obj.object_list],
+        "posts" : [post.serialize(request.user) for post in page_obj.object_list],
         "page_obj" : {  "number": page_obj.number,
                         "num_pages" : paginator.num_pages,
                         "has_next" : page_obj.has_next(),
                         "has_previous": page_obj.has_previous()                     
                       }
         })
+
+@require_GET
+def get_posts_by_profile(request, profile_id):
+    page_number = request.GET.get('page')  
+
+    post_list = Post.objects.filter(owner=profile_id)
+    paginator = Paginator(post_list,10) # 10 Posts per page
+    
+    page_obj = paginator.get_page(page_number)
+
+    return JsonResponse({
+        "posts" : [post.serialize(request.user) for post in page_obj.object_list],
+        "page_obj" : {  "number": page_obj.number,
+                        "num_pages" : paginator.num_pages,
+                        "has_next" : page_obj.has_next(),
+                        "has_previous": page_obj.has_previous()                     
+                      }
+        })
+
+@csrf_protect
+@require_POST
+@login_required
+def like(request, post_id):
+
+    post = get_object_or_404(Post, id=post_id)
+
+    like, created = Like.objects.get_or_create(
+        user=request.user,
+        post=post
+    )
+
+    return JsonResponse({
+        "liked": True,
+        "created": created,
+        "likes_count": post.likes.count()
+    }, status=200)
+
+
+@csrf_protect
+@require_http_methods(["DELETE"])
+@login_required
+def unlike(request, post_id):
+
+
+    post = get_object_or_404(Post, id=post_id)
+
+    deleted, _ = Like.objects.filter(
+        user=request.user,
+        post=post
+    ).delete()
+
+    return JsonResponse({
+        "liked": False,
+        "deleted": deleted > 0,
+        "likes_count": post.likes.count()
+    }, status=200)
+
+
+@require_GET
+def profile(request, profile_id):
+    
+    profile = get_object_or_404(User, id=profile_id)
+    
+    return render(request, "network/profile.html",{
+        "profile_name": profile.username,       
+    })
+
+
+@login_required
+@require_POST
+def following(request):
+    pass
+
+
+@login_required
+@require_POST
+def get_posts_following(request):
+    pass

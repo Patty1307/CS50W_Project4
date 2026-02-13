@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.urls import reverse
 
 
 class User(AbstractUser):
@@ -23,6 +24,7 @@ class Post(models.Model):
         return {
             "id": self.id,
             "owner": self.owner.username,
+            "owner_url": reverse("profile", args=[self.owner.id]),
             "content": self.content,
             "created": self.created.strftime("%d.%m.%Y %H:%M"),
             "edited": self.edited.strftime("%d.%m.%Y %H:%M") if self.edited else None,
