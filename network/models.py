@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
+from django.core.exceptions import ValidationError
 
 
 class User(AbstractUser):
@@ -63,3 +64,15 @@ class Comment(models.Model):
 
     def __str__(self):
         return self.content[:50]
+
+
+class Following(models.Model):
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='following')
+    followed = models.ForeignKey('User', on_delete=models.CASCADE, related_name='followers')
+
+    class Meta:
+        unique_together = ('user', 'followed')
+    
+    def clean(self):
+        if self.user == self.followed:
+            raise ValidationError("Users cannot follow themselves.")

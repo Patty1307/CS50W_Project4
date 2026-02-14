@@ -12,7 +12,7 @@ from django.views.decorators.http import require_POST, require_GET, require_http
 from django import forms
 from django.core.paginator import Paginator
 
-from .models import User, Post, Like, Comment
+from .models import User, Post, Like, Comment, Following
 
 
 class PostForm(forms.ModelForm):
@@ -189,18 +189,108 @@ def profile(request, profile_id):
     
     profile = get_object_or_404(User, id=profile_id)
     
+    is_following = (
+        request.user.is_authenticated and
+        profile.followers.filter(user=request.user).exists()
+    )
+
     return render(request, "network/profile.html",{
-        "profile_name": profile.username,       
+        "profile_name": profile.username,
+        "profile_followers_count": profile.followers.count(),
+        "profile_followed_count": profile.following.count(),
+        "can_follow_or_unfollow": profile.id != request.user.id,
+        "is_following": is_following
     })
 
-
+@csrf_protect
 @login_required
 @require_POST
+def follow(request,profile_id):
+    
+    profile = get_object_or_404(User, id=profile_id)
+
+    if profile.id == request.user.id:
+        return JsonResponse({"error": "You cannot follow yourself."}, status=400)
+
+    relation, created = Following.objects.get_or_create(
+        user=request.user,
+        followed=profile
+    )
+
+    return JsonResponse({
+        "Followed": True,
+        "created": created,
+        "follow_count": profile.followers.count()
+    }, status=200)
+
+
+@csrf_protect
+@require_http_methods(["DELETE"])
+@login_required
+def unfollow(request,profile_id):
+    
+    profile = get_object_or_404(User, id=profile_id)
+
+    deleted, _ = Following.objects.filter(
+        user=request.user,
+        followed=profile
+    ).delete()
+
+    return JsonResponse({
+        "liked": False,
+        "deleted": deleted > 0,
+        "follow_count": profile.followers.count()
+    }, status=200)
+
+
+
+@require_GET
+@login_required
 def following(request):
-    pass
+    return render(request, "network/index.html")
 
 
+@require_GET
 @login_required
-@require_POST
 def get_posts_following(request):
-    pass
+
+    page_number = request.GET.get('page')  
+
+    post_list = Post.objects.filter(owner__followers__user=request.user)
+    paginator = Paginator(post_list,10) # 10 Posts per page
+    
+    page_obj = paginator.get_page(page_number)
+
+    return JsonResponse({
+        "posts" : [post.serialize(request.user) for post in page_obj.object_list],
+        "page_obj" : {  "number": page_obj.number,
+                        "num_pages" : paginator.num_pages,
+                        "has_next" : page_obj.has_next(),
+                        "has_previous": page_obj.has_previous()                     
+                      }
+        })
+
+@csrf_protect
+@require_http_methods(["PUT"])
+@login_required
+def update_post(request, post_id):
+    post = get_object_or_404(Post, id=post_id)
+
+    # Only owner can edit
+    if post.owner != request.user:
+        return JsonResponse({"error": "Not allowed"}, status=403)
+
+    data = json.loads(request.body)
+    new_content = data.get("content", "").strip()
+
+    if not new_content:
+        return JsonResponse({"error": "Content empty"}, status=400)
+
+    post.content = new_content
+    post.save()
+
+    return JsonResponse({
+        "success": True,
+        "content": post.content,
+        "edited": post.edited.strftime("%d.%m.%Y %H:%M")
+    })

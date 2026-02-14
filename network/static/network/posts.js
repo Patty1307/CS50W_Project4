@@ -121,21 +121,53 @@ function renderPosts(posts) {
                     <a href="${post.owner_url}">
                         <p class="mb-1 fw-semibold">${post.owner}</p>
                     </a> 
+                    <div class="content">
                     <p class="mb-1 text-break">${post.content}</p>
-                    <p class="mb-0 text-muted">
+                    </div>
                       
                         <button class="btn p-0 border-0 bg-transparent like-btn">
                             <i class="bi ${post.liked_by_me ? "bi-heart-fill text-danger" : "bi-heart"} heart-icon"></i>
                         </button>
                         <span class="like-count">${post.likes}</span>
+                        <span><a class="edit-btn" href=""></a></span>
                        
-                    </p>
+                    
                 </div>
                 <div class="d-flex align-items-center flex-shrink-0">
                     <p class="m-0 text-muted small">${post.created}</p>
                 </div>
             </div>
         `
+            
+        if (post.can_edit) {
+            const editbtn = div.querySelector(".edit-btn");
+            editbtn.innerHTML ="Edit"
+            let editing = false;
+            editbtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                
+                if (!editing) {
+                    editing = true;
+                    editbtn.innerHTML="Save"
+                    div.querySelector(".content").innerHTML = `
+                    
+                        <textarea class="form-control editContent">${post.content}</textarea>
+                
+                `;           
+                } else {
+                    const textarea = div.querySelector(".editContent");
+                    const newContent = textarea ? textarea.value : "";
+
+                    editing = false;
+                    editbtn.textContent = "Edit";
+                    div.querySelector(".content").textContent = newContent;
+
+                    update_post(post.id, newContent);
+
+                    post.content = newContent;
+                    }
+            });
+        }
         
             const likeBtn = div.querySelector(".like-btn");
             const heartIcon = div.querySelector(".heart-icon");
@@ -144,9 +176,6 @@ function renderPosts(posts) {
             likeBtn.addEventListener("click", () => {
                 toggleLike(post, heartIcon, likeCount);
             });
-
-
-
 
         container.appendChild(div);
         
@@ -205,5 +234,40 @@ async function toggleLike(post, heartIcon, likeCount) {
 
     } catch (error) {
         console.error("Error loading posts", error.message);
+    }
+}
+
+async function update_post(post_id, content) {
+    
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        try {
+        // API-CALL
+        const response = await fetch(`/posts/update/${post_id}`, {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                content
+            })
+        });
+
+        // Json parsen
+        const data = await response.json();
+        
+        // Check Http status if everything is okay. Else Error handling
+        if (!response.ok) {
+            throw new Error(data.error || "Unknown error while editing post");
+        }
+        console.log("Post API response:", data);
+
+        showToast("Post successfully edited!");
+
+    } catch (error) {
+        console.error("Error updating post", error.message);
+        showToast("Error while updating post!")
     }
 }
