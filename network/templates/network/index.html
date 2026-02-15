@@ -8,8 +8,8 @@
 
     <div id="AllPosts_view">
         
-       <h1>All Posts</h1>     
-            {% if user.is_authenticated %}
+       <h1>{{ page_title }}</h1>     
+            {% if user.is_authenticated and page_title == "All Posts" %}
                 <!-- Button trigger modal -->
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#composeModal">
                 New Post

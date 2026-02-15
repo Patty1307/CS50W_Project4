@@ -33,6 +33,7 @@ def index(request):
 
     return render(request, "network/index.html", {
         "form": form,
+        "page_title": "All Posts"
     })
 
 
@@ -147,9 +148,10 @@ def get_posts_by_profile(request, profile_id):
 
 @csrf_protect
 @require_POST
-@login_required
+@login_required(login_url='login')
 def like(request, post_id):
 
+    
     post = get_object_or_404(Post, id=post_id)
 
     like, created = Like.objects.get_or_create(
@@ -245,9 +247,11 @@ def unfollow(request,profile_id):
 
 
 @require_GET
-@login_required
+@login_required(login_url='login')
 def following(request):
-    return render(request, "network/index.html")
+    return render(request, "network/index.html",{
+        "page_title": "Following"
+    })
 
 
 @require_GET
@@ -276,7 +280,7 @@ def get_posts_following(request):
 def update_post(request, post_id):
     post = get_object_or_404(Post, id=post_id)
 
-    # Only owner can edit
+    # Only owner can edit 
     if post.owner != request.user:
         return JsonResponse({"error": "Not allowed"}, status=403)
 
